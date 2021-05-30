@@ -8,7 +8,7 @@ export class JwtMiddleware implements NestMiddleware {
   constructor(private readonly jwtService: JwtService) {}
   async use(req: Request, res: Response, next: NextFunction) {
     const token = req.session.access_token;
-    console.log(req.session);
+    // console.log(req.session);
     if (token) {
       //
       req.user = true;

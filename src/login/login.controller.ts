@@ -1,11 +1,18 @@
 import { Controller, Get, Query, Res, Session } from '@nestjs/common';
 import { Response } from 'express';
+import { JwtService } from 'src/jwt/jwt.service';
+import { SocialType } from 'src/users/dtos/user.dto';
+import { UsersService } from 'src/users/users.service';
 import { KakaoLoginDto } from './dtos/kakao.dto';
 import { LoginService } from './login.service';
 
 @Controller('login')
 export class LoginController {
-  constructor(private readonly loginService: LoginService) {}
+  constructor(
+    private readonly loginService: LoginService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   @Get('kakao')
   async kakao(
@@ -14,17 +21,28 @@ export class LoginController {
     @Res() res: Response,
   ) {
     try {
-      console.log('session', session);
       const { data } = await this.loginService.kakaoToken(query.code);
 
       const me = await this.loginService.kakaoMe(data.access_token);
-      /**
-       * @TODO user id 존재하는지 체크하고 없으면 계정 만들어주기
-       */
-      console.log(me.data.id);
+      const kakaoId = String(me.data.id);
 
-      session.access_token = data.access_token;
-      session.refresh_token = data.refresh_token;
+      const user = await this.usersService.findOne(kakaoId);
+
+      console.log(user);
+      let token: string;
+
+      if (user) {
+        token = this.jwtService.sign(user.id);
+      } else {
+        const newUser = await this.usersService.createOne({
+          soicalType: SocialType.KAKAO,
+          socialId: kakaoId,
+        });
+        token = this.jwtService.sign(newUser.id);
+      }
+
+      session.jwt_token = token;
+
       res.redirect('http://localhost:3090/');
     } catch (error) {
       console.log(error);

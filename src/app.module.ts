@@ -10,8 +10,9 @@ import { LoginModule } from './login/login.module';
 import { UsersModule } from './users/users.module';
 import { JwtModule } from './jwt/jwt.module';
 import { JwtMiddleware } from './jwt/jwt.middleware';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validate } from './config/env.validation';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
@@ -19,9 +20,24 @@ import { validate } from './config/env.validation';
       validate: validate,
       isGlobal: true,
     }),
+    JwtModule,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_DATABASE'),
+        entities: ['./dist/**/*.entity{.ts,.js}'],
+        synchronize: true,
+        logging: true,
+      }),
+      inject: [ConfigService],
+    }),
     LoginModule,
     UsersModule,
-    JwtModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],
